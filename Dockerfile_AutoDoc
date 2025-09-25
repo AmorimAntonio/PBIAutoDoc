@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends build-essential
 
 COPY . /app
 
-RUN if [ -f requirements.txt ]; then pip install --no-cache-dir -r requirements.txt; fi \
+RUN if [ -f requirements.txt ]; then pip install --no-cache-dir -r requirements.txt
 
 
 EXPOSE 8501
