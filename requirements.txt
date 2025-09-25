@@ -8,3 +8,4 @@ python-docx
 xlsxwriter
 streamlit-javascript
 tiktoken
+chunkipy==0.0.3
