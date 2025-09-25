@@ -6,15 +6,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1
 
-# (pequeno set de deps e pip atualizado ajuda builds)
 RUN apt-get update && apt-get install -y --no-install-recommends build-essential curl \
     && rm -rf /var/lib/apt/lists/* \
- && python -m pip install --upgrade pip setuptools wheel
+    && python -m pip install --upgrade pip setuptools wheel
 
 COPY . /app
 
-RUN if [ -f requirements.txt ]; then pip install --no-cache-dir -r requirements.txt
 
+RUN if [ -f requirements.txt ]; then pip install --no-cache-dir -r requirements.txt; fi
 
 EXPOSE 8501
 ENTRYPOINT ["streamlit","run","app.py","--server.port=8501","--server.address=0.0.0.0","--server.fileWatcherType=none"]
