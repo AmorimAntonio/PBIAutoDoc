@@ -19,6 +19,7 @@ load_dotenv()
 
 # Initialize internationalization
 init_i18n(default_language="en")
+st.session_state.setdefault('language', 'en')
 
 MODELO = ""
 MAX_TOKENS = 0
@@ -278,8 +279,6 @@ def display_reports(scan_response):
         df_desnormalized = clean_reports(scan_response, option)
         buttons_download(df_desnormalized)
 
-def click_button():
-    st.session_state.button = not st.session_state.button
     
 # Function to recursively update the 'FonteDados' field
 def update_fonte_dados(data, tables_df):
@@ -303,16 +302,17 @@ def update_fonte_dados(data, tables_df):
 
 def buttons_download(df):
 
+    # defaults de sessão
     st.session_state.setdefault('button', True)          # habilita/desabilita botões
     st.session_state.setdefault('show_chat', False)
     st.session_state.setdefault('doc_gerada', False)
 
-    # ...
+    # nome do relatório
     if not df.empty and 'ReportName' in df.columns:
         report_name = df['ReportName'].iloc[0].replace(' ', '_')
     else:
         report_name = "PBIReport"
-    st.session_state['report_name'] = report_name  # garante disponível
+    st.session_state['report_name'] = report_name
 
     # ------ CONTROLES SUPERIORES ------
     on = st.checkbox(t('ui.view_report_data'), key=f"view_report_data_{report_name}")
@@ -334,6 +334,58 @@ def buttons_download(df):
         conversar = st.button(t('ui.chat'),
                               key=f"btn_chat_{report_name}",
                               disabled=st.session_state.get('show_chat', False))
+
+    # Handler para gerar documentação
+    if gerar_doc and not st.session_state.get('show_chat', False):
+        with st.spinner(t('messages.generating_documentation')):
+            document_text_all, dados_relatorio_PBI_medidas, dados_relatorio_PBI_fontes, measures_df, tables_df, df_colunas = text_to_document(df, max_tokens=MAX_TOKENS)
+
+            medidas_do_relatorio_df = pd.DataFrame()
+            fontes_de_dados_df = pd.DataFrame()
+            response_info, response_tables = {}, []
+            # caminho “one-shot”
+            if counttokens(document_text_all) < MAX_TOKENS:
+                resp = Documenta(defined_prompt(t('language_name')), document_text_all, MODELO,
+                                 max_tokens=MAX_TOKENS, max_tokens_saida=MAX_TOKENS_SAIDA)
+                response_info = resp.get('Relatorio', {})
+                response_tables = resp.get('Tabelas_do_Relatorio', [])
+                response_measures = resp.get('Medidas_do_Relatorio', [])
+                response_source   = resp.get('Fontes_de_Dados', [])
+            else:
+                # caminho em partes (medidas / fontes)
+                for text in dados_relatorio_PBI_medidas:
+                    resp = Documenta(defined_prompt_medidas(t('language_name')), text, MODELO,
+                                     max_tokens=MAX_TOKENS, max_tokens_saida=MAX_TOKENS_SAIDA)
+                    if 'Medidas_do_Relatorio' in resp:
+                        medidas_do_relatorio_df = pd.concat([medidas_do_relatorio_df,
+                                                             pd.DataFrame(resp['Medidas_do_Relatorio'])], ignore_index=True)
+                    if not response_info and 'Relatorio' in resp:
+                        response_info = resp['Relatorio']
+                        response_tables = resp.get('Tabelas_do_Relatorio', [])
+                for text in dados_relatorio_PBI_fontes:
+                    resp = Documenta(defined_prompt_fontes(t('language_name')), text, MODELO,
+                                     max_tokens=MAX_TOKENS, max_tokens_saida=MAX_TOKENS_SAIDA)
+                    if 'Fontes_de_Dados' in resp:
+                        fontes_de_dados_df = pd.concat([fontes_de_dados_df,
+                                                        pd.DataFrame(resp['Fontes_de_Dados'])], ignore_index=True)
+                    if not response_info and 'Relatorio' in resp:
+                        response_info = resp['Relatorio']
+                        response_tables = resp.get('Tabelas_do_Relatorio', [])
+
+                response_measures = medidas_do_relatorio_df.to_dict(orient='records')
+                response_source   = fontes_de_dados_df.to_dict(orient='records')
+
+            # pós-processo + salvar no estado
+            update_fonte_dados(response_source, tables_df)
+            st.session_state['response_info']   = response_info
+            st.session_state['response_tables'] = response_tables
+            st.session_state['response_measures'] = response_measures
+            st.session_state['response_source']   = response_source
+            st.session_state['measures_df'] = measures_df
+            st.session_state['df_colunas']  = df_colunas
+            st.session_state['doc_gerada']  = True
+            st.session_state['button']      = False
+            st.success(t('messages.documentation_generated'))
 
     # ------ EXPORTAÇÕES (quando doc_gerada=True e show_chat=False) ------
     if st.session_state.get('doc_gerada', False) and not st.session_state.get('show_chat', False):
@@ -471,65 +523,10 @@ def buttons_download(df):
             st.session_state['chat_messages'].append(msg)
             st.chat_message("assistant").write(result)
 
-        st.button(t('chat.close_chat'), on_click=lambda: st.session_state.update({'show_chat': False, 'doc_gerada': True}))    # Exibe as opções somente se a documentação foi gerada e o chat não está ativo
-    if st.session_state.get('doc_gerada', False) and not st.session_state.get('show_chat', False):
-        verprompt = st.checkbox(t('ui.show_json'), key='mostrar_json', disabled=st.session_state.button )
-        if verprompt:
-            response_info_str = json.dumps(st.session_state.get('response_info', {}), indent=2)
-            response_tables_str = json.dumps(st.session_state.get('response_tables', {}), indent=2)
-            response_measures_str = json.dumps(st.session_state.get('response_measures', {}), indent=2)
-            response_source_str = json.dumps(st.session_state.get('response_source', {}), indent=2)
-            text = f"{t('ui.json_report_info')}\n{response_info_str}\n\n{t('ui.json_report_tables')}\n{response_tables_str}\n\n{t('ui.json_report_measures')}\n{response_measures_str}\n\n{t('ui.json_data_sources')}\n{response_source_str}"
-            st.text_area(t('ui.json_area_label'), value=text, height=300)
-
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button(t('ui.export_excel'), disabled=st.session_state.button):
-                with st.spinner(t('ui.generating_file')):
-                    buffer = generate_excel(st.session_state['response_info'], st.session_state['response_tables'], st.session_state['response_measures'], st.session_state['response_source'], st.session_state['measures_df'], st.session_state['df_relationships'], st.session_state['df_colunas'])
-                    st.download_button(
-                        label=t('ui.download_excel_file'),
-                        data=buffer,
-                        file_name=report_name+'.xlsx',
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    )
-        with col2:
-            if st.button(t('ui.export_word'), disabled=st.session_state.button):
-                with st.spinner(t('ui.generating_file')):
-                    doc = generate_docx(st.session_state['response_info'], st.session_state['response_tables'], st.session_state['response_measures'], st.session_state['response_source'], st.session_state['measures_df'], st.session_state['df_relationships'], st.session_state['df_colunas'], st.session_state['modelo'], st.session_state.language)
-                    buffer = BytesIO()
-                    doc.save(buffer)
-                    buffer.seek(0)
-                    st.download_button(
-                        label=t('ui.download_word_file'),
-                        data=buffer,
-                        file_name=report_name+'.docx',
-                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                    )
-
-        # --- dentro de: if st.session_state.get('doc_gerada', False) and not st.session_state.get('show_chat', False):
-
-        # 👉 NOVO BLOCO PARA MARKDOWN
-        if st.button("Exportar Markdown (.md)", disabled=st.session_state.button):
-            with st.spinner(t('ui.generating_file')):
-                md_bytes = generate_markdown(
-                    st.session_state['response_info'],
-                    st.session_state['response_tables'],
-                    st.session_state['response_measures'],
-                    st.session_state['response_source'],
-                    st.session_state['measures_df'],
-                    st.session_state['df_relationships'],
-                    st.session_state['df_colunas'],
-                    st.session_state['modelo'],
-                    st.session_state.language
-                )
-                st.download_button(
-                    label="Baixar Markdown (.md)",
-                    data=md_bytes,
-                    file_name=report_name+'.md',
-                    mime="text/markdown"
-                )
-
+    st.button(t('chat.close_chat'),
+          key=f"btn_close_chat_{st.session_state.get('report_name','PBIReport')}",
+          on_click=lambda: st.session_state.update({'show_chat': False, 'doc_gerada': True}))
+    # Remove bloco duplicado de exportação sem keys (mantém apenas o bloco anterior, já com keys exclusivas)
         
 def main():    
     """Função principal do aplicativo, onde todas as funções são chamadas."""        
