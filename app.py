@@ -302,6 +302,11 @@ def update_fonte_dados(data, tables_df):
             update_fonte_dados(item, tables_df)  
 
 def buttons_download(df):
+
+    st.session_state.setdefault('button', True)          # habilita/desabilita botões
+    st.session_state.setdefault('show_chat', False)
+    st.session_state.setdefault('doc_gerada', False)
+
     # ...
     if not df.empty and 'ReportName' in df.columns:
         report_name = df['ReportName'].iloc[0].replace(' ', '_')
@@ -503,50 +508,6 @@ def buttons_download(df):
                     )
 
         # --- dentro de: if st.session_state.get('doc_gerada', False) and not st.session_state.get('show_chat', False):
-
-
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button(t('ui.export_excel'), disabled=st.session_state.button):
-                with st.spinner(t('ui.generating_file')):
-                    buffer = generate_excel(
-                        st.session_state['response_info'],
-                        st.session_state['response_tables'],
-                        st.session_state['response_measures'],
-                        st.session_state['response_source'],
-                        st.session_state['measures_df'],
-                        st.session_state['df_relationships'],
-                        st.session_state['df_colunas']
-                    )
-                    st.download_button(
-                        label=t('ui.download_excel_file'),
-                        data=buffer,
-                        file_name=report_name+'.xlsx',
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    )
-        with col2:
-            if st.button(t('ui.export_word'), disabled=st.session_state.button):
-                with st.spinner(t('ui.generating_file')):
-                    doc = generate_docx(
-                        st.session_state['response_info'],
-                        st.session_state['response_tables'],
-                        st.session_state['response_measures'],
-                        st.session_state['response_source'],
-                        st.session_state['measures_df'],
-                        st.session_state['df_relationships'],
-                        st.session_state['df_colunas'],
-                        st.session_state['modelo'],
-                        st.session_state.language
-                    )
-                    buffer = BytesIO()
-                    doc.save(buffer)
-                    buffer.seek(0)
-                    st.download_button(
-                        label=t('ui.download_word_file'),
-                        data=buffer,
-                        file_name=report_name+'.docx',
-                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                    )
 
         # 👉 NOVO BLOCO PARA MARKDOWN
         if st.button("Exportar Markdown (.md)", disabled=st.session_state.button):
