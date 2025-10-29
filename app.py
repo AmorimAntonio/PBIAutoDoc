@@ -9,6 +9,7 @@ import tiktoken
 # Importando as funções dos outros arquivos
 from relatorio import get_token, get_workspaces_id, scan_workspace, clean_reports, upload_file
 from documenta import generate_docx, generate_excel, text_to_document, Documenta, defined_prompt_fontes, defined_prompt_medidas, generate_promt_medidas, generate_promt_fontes, defined_prompt, generate_promt
+from documenta import generate_markdown  # certifique-se de importar no topo do app.py
 
 # Importando o sistema de internacionalização
 from i18n import init_i18n, t, language_selector
@@ -494,6 +495,73 @@ def buttons_download(df):
                         file_name=report_name+'.docx',
                         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                     )
+
+        # --- dentro de: if st.session_state.get('doc_gerada', False) and not st.session_state.get('show_chat', False):
+
+
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button(t('ui.export_excel'), disabled=st.session_state.button):
+                with st.spinner(t('ui.generating_file')):
+                    buffer = generate_excel(
+                        st.session_state['response_info'],
+                        st.session_state['response_tables'],
+                        st.session_state['response_measures'],
+                        st.session_state['response_source'],
+                        st.session_state['measures_df'],
+                        st.session_state['df_relationships'],
+                        st.session_state['df_colunas']
+                    )
+                    st.download_button(
+                        label=t('ui.download_excel_file'),
+                        data=buffer,
+                        file_name=report_name+'.xlsx',
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
+        with col2:
+            if st.button(t('ui.export_word'), disabled=st.session_state.button):
+                with st.spinner(t('ui.generating_file')):
+                    doc = generate_docx(
+                        st.session_state['response_info'],
+                        st.session_state['response_tables'],
+                        st.session_state['response_measures'],
+                        st.session_state['response_source'],
+                        st.session_state['measures_df'],
+                        st.session_state['df_relationships'],
+                        st.session_state['df_colunas'],
+                        st.session_state['modelo'],
+                        st.session_state.language
+                    )
+                    buffer = BytesIO()
+                    doc.save(buffer)
+                    buffer.seek(0)
+                    st.download_button(
+                        label=t('ui.download_word_file'),
+                        data=buffer,
+                        file_name=report_name+'.docx',
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    )
+
+        # 👉 NOVO BLOCO PARA MARKDOWN
+        if st.button("Exportar Markdown (.md)", disabled=st.session_state.button):
+            with st.spinner(t('ui.generating_file')):
+                md_bytes = generate_markdown(
+                    st.session_state['response_info'],
+                    st.session_state['response_tables'],
+                    st.session_state['response_measures'],
+                    st.session_state['response_source'],
+                    st.session_state['measures_df'],
+                    st.session_state['df_relationships'],
+                    st.session_state['df_colunas'],
+                    st.session_state['modelo'],
+                    st.session_state.language
+                )
+                st.download_button(
+                    label="Baixar Markdown (.md)",
+                    data=md_bytes,
+                    file_name=report_name+'.md',
+                    mime="text/markdown"
+                )
 
         
 def main():    

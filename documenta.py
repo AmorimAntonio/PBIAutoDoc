@@ -10,6 +10,8 @@ from docx.oxml.ns import qn
 from datetime import date, datetime
 from chunkipy import TextChunker
 from i18n import translate_to_language
+from typing import List, Dict, Any
+import io
 
 # Funções de definição dos Prompts para a medida e fontes dos dados
 
@@ -702,6 +704,91 @@ def generate_excel(response_info, response_tables, response_measures, response_s
             
     buffer.seek(0)
     return buffer
+
+
+
+def _rows_to_markdown_table(rows: List[Dict[str, Any]]) -> str:
+    if not rows:
+        return "_(sem dados)_\n"
+    # Cabeçalhos na ordem das chaves
+    cols = list(rows[0].keys())
+    header = "| " + " | ".join(cols) + " |"
+    sep    = "| " + " | ".join(["---"] * len(cols)) + " |"
+    lines = [header, sep]
+    for r in rows:
+        line = "| " + " | ".join(str(r.get(c, "")) for c in cols) + " |"
+        lines.append(line)
+    return "\n".join(lines) + "\n"
+
+def _df_to_markdown_table(df):
+    if df is None or df.empty:
+        return "_(sem dados)_\n"
+    cols = list(df.columns)
+    header = "| " + " | ".join(cols) + " |"
+    sep    = "| " + " | ".join(["---"] * len(cols)) + " |"
+    lines = [header, sep]
+    for _, row in df.iterrows():
+        line = "| " + " | ".join(str(row.get(c, "")) for c in cols) + " |"
+        lines.append(line)
+    return "\n".join(lines) + "\n"
+
+def generate_markdown(
+    info: Dict[str, Any],
+    tables: List[Dict[str, Any]],
+    measures: List[Dict[str, Any]],
+    sources: List[Dict[str, Any]],
+    measures_df=None,
+    df_relationships=None,
+    df_colunas=None,
+    modelo: str = "",
+    language: str = "pt"
+) -> bytes:
+    """Gera um Markdown com a mesma estrutura do DOCX."""
+    parts = []
+
+    # Título
+    titulo = info.get("Titulo", "Documentação do Relatório")
+    parts.append(f"# {titulo}\n")
+
+    # Metadados básicos do relatório
+    if info:
+        parts.append("## Informações do Relatório\n")
+        # Se info for um dicionário plano
+        for k, v in info.items():
+            parts.append(f"- **{k}**: {v}")
+        parts.append("")  # linha em branco
+
+    # Tabelas do Relatório (lista de dicts)
+    parts.append("## Tabelas do Relatório\n")
+    parts.append(_rows_to_markdown_table(tables))
+
+    # Medidas do Relatório
+    parts.append("## Medidas do Relatório\n")
+    if measures:
+        parts.append(_rows_to_markdown_table(measures))
+    elif measures_df is not None:
+        parts.append(_df_to_markdown_table(measures_df))
+    else:
+        parts.append("_(sem dados)_\n")
+
+    # Fontes de Dados
+    parts.append("## Fontes de Dados\n")
+    parts.append(_rows_to_markdown_table(sources))
+
+    # Relacionamentos
+    parts.append("## Relacionamentos\n")
+    parts.append(_df_to_markdown_table(df_relationships))
+
+    # Colunas
+    parts.append("## Colunas\n")
+    parts.append(_df_to_markdown_table(df_colunas))
+
+    # Rodapé
+    parts.append("\n---\n")
+    parts.append(f"_Modelo_: `{modelo}`  \n_Língua_: `{language}`\n")
+
+    md = "\n".join(parts).strip() + "\n"
+    return md.encode("utf-8")
 
 # Funçcão para preparar o relatório do Power BI para enviar para o modelo LLM por prompt
 
