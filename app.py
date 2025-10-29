@@ -224,7 +224,18 @@ def main_content(headers=None, uploaded_files=None):
 
     if uploaded_files:
         with st.spinner(t('messages.processing_file')):
-            df_normalized, df_relationships = upload_file(uploaded_files)
+            res = upload_file(uploaded_files)
+
+            if isinstance(res, (list, tuple)):
+                df_normalized = res[0]
+                df_relationships = res[1] if len(res) > 1 else None
+                # guarda qualquer extra que possa vir em versões novas:
+                extras = res[2:]
+                if extras:
+                    st.session_state['upload_extras'] = extras
+            else:
+                df_normalized = res
+                df_relationships = None
 
         # Store the df_relationships data in the session state for later use
         st.session_state['df_relationships'] = df_relationships
