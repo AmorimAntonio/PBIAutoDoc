@@ -431,6 +431,8 @@ def buttons_download(df):
                         st.session_state['df_colunas'],
                         st.session_state['modelo'],
                         st.session_state.language,
+                        st.session_state.get('modelo', MODELO), 
+                        st.session_state.language,
                     )
                     buf = BytesIO(); doc.save(buf); buf.seek(0)
                     st.download_button(
@@ -455,6 +457,8 @@ def buttons_download(df):
                     st.session_state['df_relationships'],
                     st.session_state['df_colunas'],
                     st.session_state['modelo'],
+                    st.session_state.language,
+                    st.session_state.get('modelo', MODELO),   # ✅ fallback
                     st.session_state.language,
                 )
                 st.download_button(
@@ -540,6 +544,8 @@ def main():
     MAX_TOKENS = max_tokens
     MAX_TOKENS_SAIDA = max_tokens_saida
             
+    st.session_state.setdefault('modelo', MODELO)
+
     if app_id and tenant_id and secret_value:
         headers = get_token(app_id, tenant_id, secret_value)
         if headers:
