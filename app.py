@@ -18,8 +18,8 @@ from i18n import init_i18n, t, language_selector
 load_dotenv()
 
 # Initialize internationalization
-init_i18n(default_language="en")
-st.session_state.setdefault('language', 'en')
+init_i18n(default_language="pt")
+st.session_state.setdefault('language', 'pt')
 
 MODELO = ""
 MAX_TOKENS = 0
