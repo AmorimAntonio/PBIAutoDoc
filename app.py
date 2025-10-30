@@ -18,8 +18,8 @@ from i18n import init_i18n, t, language_selector
 load_dotenv()
 
 # Initialize internationalization
-init_i18n(default_language="pt")
-st.session_state.setdefault('language', 'pt')
+init_i18n(default_language="pt-BR")
+st.session_state.setdefault('language', 'pt-BR')
 
 MODELO = ""
 MAX_TOKENS = 0
@@ -429,7 +429,7 @@ def buttons_download(df):
                         st.session_state['measures_df'],
                         st.session_state['df_relationships'],
                         st.session_state['df_colunas'],
-                        st.session_state.get('modelo', MODELO) 
+                        st.session_state.get('modelo', MODELO)   # <-- adicionado
                     )
 
                     buf = BytesIO(); doc.save(buf); buf.seek(0)
