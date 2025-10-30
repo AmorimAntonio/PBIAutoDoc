@@ -428,7 +428,8 @@ def buttons_download(df):
                         st.session_state['response_source'],
                         st.session_state['measures_df'],
                         st.session_state['df_relationships'],
-                        st.session_state['df_colunas']
+                        st.session_state['df_colunas'],
+                        st.session_state.get('modelo', MODELO) 
                     )
 
                     buf = BytesIO(); doc.save(buf); buf.seek(0)
